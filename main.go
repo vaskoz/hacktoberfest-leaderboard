@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"reflect"
@@ -46,41 +47,83 @@ func main() {
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
-	owner, repoName, sha := setupNewRepo(ctx, client, ghRepo)
-	updateStats(ctx, client, owner, repoName, sha)
+	owner, repoName, readmeSha, participantsSha := setupNewRepo(ctx, client, ghRepo)
+	updateStats(ctx, client, owner, repoName, readmeSha, participantsSha)
 
 	exit(0)
 }
 
-func updateStats(ctx context.Context, client *github.Client, owner, repo, sha string) {
+func updateStats(ctx context.Context, client *github.Client, owner, repo, readmeSha, participantsSha string) {
 	participants := map[string]int{owner: 0}
 	q := "is:pr label:hacktoberfest-accepted user:%s created:2021-10-01..2021-11-01"
+	msg := "Thank you for signing up for the leaderboard"
+	closed := "closed"
 
-	newParticipants := make(map[string]int, len(participants))
-	for user := range participants {
-		isr, _, _ := client.Search.Issues(ctx, fmt.Sprintf(q, user), &github.SearchOptions{})
-		newParticipants[user] = isr.GetTotal()
-	}
+	for { // infinite loop - need context checking here.
+		// find all participants by searching for new issues.
+		isr, x, y := client.Search.Issues(ctx, fmt.Sprintf("is:issue state:open repo:%s/%s", owner, repo), &github.SearchOptions{})
+		log.Println("search issues", isr, len(isr.Issues), isr.Issues, x, y)
 
-	fmt.Fprintln(stderr, newParticipants)
-
-	if !reflect.DeepEqual(participants, newParticipants) {
-		sorted := Sort(newParticipants)
-		// write a new file
-		now := time.Now()
-		fileContent := fmt.Sprintf("# Hacktoberfest 2021 Leaderboard. Updated: %s\n", now.Format(time.RFC1123Z))
-		for i, s := range sorted {
-			fileContent += fmt.Sprintf("%d. %s - %d\n", i+1, s.User, s.PR)
-		}
-		opts := &github.RepositoryContentFileOptions{
-			Message: github.String("README.md leaderboard update"),
-			Content: []byte(fileContent),
-			Branch:  github.String("main"),
-			SHA:     github.String(sha),
+		for _, iss := range isr.Issues {
+			p := *iss.User.Login
+			participants[p] = 0
+			a, b, c := client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
+				Body: &msg,
+			})
+			log.Println("create issue comment", a, b, c)
+			d, e, f := client.Issues.Edit(ctx, owner, repo, iss.GetNumber(), &github.IssueRequest{
+				State: &closed,
+			})
+			log.Println("edit issue", d, e, f)
 		}
 
-		rcr, _, err := client.Repositories.UpdateFile(ctx, owner, repo, "README.md", opts)
-		fmt.Fprintln(stderr, rcr, err)
+		if isr.GetTotal() != 0 {
+			lst := make([]string, 0, len(participants))
+			for s := range participants {
+				lst = append(lst, s)
+			}
+			sort.StringSlice(lst).Sort()
+			content := ""
+			for _, s := range lst {
+				content += fmt.Sprintf("%s\n", s)
+			}
+			opts := &github.RepositoryContentFileOptions{
+				Message: github.String("participants.txt update"),
+				Content: []byte(content),
+				Branch:  github.String("main"),
+				SHA:     github.String(participantsSha),
+			}
+
+			rcr, _, _ := client.Repositories.UpdateFile(ctx, owner, repo, "participants.txt", opts)
+			participantsSha = rcr.GetContent().GetSHA()
+		}
+
+		newParticipants := make(map[string]int, len(participants))
+		for user := range participants {
+			isr, _, _ := client.Search.Issues(ctx, fmt.Sprintf(q, user), &github.SearchOptions{})
+			newParticipants[user] = isr.GetTotal()
+		}
+
+		if !reflect.DeepEqual(participants, newParticipants) {
+			sorted := Sort(newParticipants)
+			// write a new file
+			now := time.Now()
+			fileContent := fmt.Sprintf("# Hacktoberfest 2021 Leaderboard.\n### Updated: %s\n", now.Format(time.RFC1123Z))
+			for i, s := range sorted {
+				fileContent += fmt.Sprintf("%d. %s - %d\n", i+1, s.User, s.PR)
+			}
+			opts := &github.RepositoryContentFileOptions{
+				Message: github.String("README.md leaderboard update"),
+				Content: []byte(fileContent),
+				Branch:  github.String("main"),
+				SHA:     github.String(readmeSha),
+			}
+
+			rcr, _, _ := client.Repositories.UpdateFile(ctx, owner, repo, "README.md", opts)
+			readmeSha = rcr.GetContent().GetSHA()
+		}
+
+		time.Sleep(1 * time.Minute) // 1 minute between checks.
 	}
 }
 
@@ -103,7 +146,7 @@ func Sort(p map[string]int) []Tuple {
 	return res
 }
 
-func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (string, string, string) {
+func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (string, string, string, string) {
 	F := false
 	T := true
 	r := &github.Repository{Name: &ghRepo, Private: &F, HasIssues: &T, HasWiki: &F,
@@ -131,7 +174,7 @@ func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (st
 		Branch:  github.String("main"),
 	}
 
-	client.Repositories.CreateFile(ctx, *repo.Owner.Login, *repo.Name, "participants.txt", opts1)
+	rcr2, _, _ := client.Repositories.CreateFile(ctx, *repo.Owner.Login, *repo.Name, "participants.txt", opts1)
 
-	return *repo.Owner.Login, *repo.Name, *rcr.GetContent().SHA
+	return *repo.Owner.Login, *repo.Name, *rcr.GetContent().SHA, *rcr2.GetContent().SHA
 }
