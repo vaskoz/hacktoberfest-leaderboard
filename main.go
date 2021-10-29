@@ -125,7 +125,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 
 		participants = newParticipants
 
-		time.Sleep(1 * time.Minute) // 1 minute between checks.
+		time.Sleep(2 * time.Minute) // 2-minutes between checks.
 	}
 }
 
