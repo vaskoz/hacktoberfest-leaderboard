@@ -105,7 +105,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			now := time.Now()
 			fileContent := fmt.Sprintf("# Hacktoberfest 2021 Leaderboard.\n### Updated: %s\n", now.Format(time.RFC1123Z))
 			for i, s := range sorted {
-				fileContent += fmt.Sprintf("%d. %s - %d\n", i+1, s.User, s.PR)
+				fileContent += fmt.Sprintf("%d. [%s](https://github.com/%s) - %d\n", i+1, s.User, s.User, s.PR)
 			}
 			opts := &github.RepositoryContentFileOptions{
 				Message: github.String("README.md leaderboard update"),
