@@ -54,7 +54,7 @@ func main() {
 
 func updateStats(ctx context.Context, client *github.Client, owner, repo, readmeSha, participantsSha string) {
 	participants := map[string]int{owner: -1}
-	q := "is:pr -label:invalid,spam user:%s created:2021-10-01..2021-11-01"
+	q := "is:pr -label:invalid,spam author:%s created:2021-10-01..2021-11-01"
 	msg := "Thank you for signing up for the leaderboard"
 	closed := "closed"
 
