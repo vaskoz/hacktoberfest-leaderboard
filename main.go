@@ -110,7 +110,16 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 					}
 				}
 				// check if Repo has desired topic
-				for _, topic := range iss.Repository.Topics {
+				r := iss.GetHTMLURL()
+				if j := strings.LastIndex(r, "/pull/"); j >= 0 {
+					r = r[:j]
+				}
+				parts := strings.Split(r, "/")
+				re := parts[len(parts)-1]
+				own := parts[len(parts)-2]
+
+				gr, _, _ := client.Repositories.Get(ctx, own, re)
+				for _, topic := range gr.Topics {
 					t := strings.ToLower(topic)
 					if t == "hacktoberfest" {
 						isValid = true
