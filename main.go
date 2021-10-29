@@ -63,7 +63,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 
 		for _, iss := range isr.Issues {
 			p := *iss.User.Login
-			participants[p] = 0
+			participants[p] = -1
 			client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
 				Body: &msg,
 			})
