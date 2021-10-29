@@ -123,6 +123,8 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			readmeSha = rcr.GetContent().GetSHA()
 		}
 
+		participants = newParticipants
+
 		time.Sleep(1 * time.Minute) // 1 minute between checks.
 	}
 }
