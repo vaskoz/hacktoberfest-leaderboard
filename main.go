@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"reflect"
@@ -62,7 +61,6 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 	for { // infinite loop - need context checking here.
 		// find all participants by searching for new issues.
 		isr, x, y := client.Search.Issues(ctx, fmt.Sprintf("is:issue state:open repo:%s/%s", owner, repo), &github.SearchOptions{})
-		log.Println("search issues", isr, len(isr.Issues), isr.Issues, x, y)
 
 		for _, iss := range isr.Issues {
 			p := *iss.User.Login
@@ -70,11 +68,9 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			a, b, c := client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
 				Body: &msg,
 			})
-			log.Println("create issue comment", a, b, c)
 			d, e, f := client.Issues.Edit(ctx, owner, repo, iss.GetNumber(), &github.IssueRequest{
 				State: &closed,
 			})
-			log.Println("edit issue", d, e, f)
 		}
 
 		if isr.GetTotal() != 0 {
