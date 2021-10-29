@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v39/github"
@@ -53,7 +54,7 @@ func main() {
 
 func updateStats(ctx context.Context, client *github.Client, owner, repo, readmeSha, participantsSha string) {
 	participants := map[string]int{owner: 0}
-	q := "is:pr label:hacktoberfest-accepted user:%s created:2021-10-01..2021-11-01"
+	q := "is:pr -label:invalid,spam user:%s created:2021-10-01..2021-11-01"
 	msg := "Thank you for signing up for the leaderboard"
 	closed := "closed"
 
@@ -96,7 +97,33 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 		newParticipants := make(map[string]int, len(participants))
 		for user := range participants {
 			isr, _, _ := client.Search.Issues(ctx, fmt.Sprintf(q, user), &github.SearchOptions{})
-			newParticipants[user] = isr.GetTotal()
+			// verify rules here
+			validPrCount := 0
+			for _, iss := range isr.Issues {
+				isValid := false
+				// check if PR has desired label
+				for _, label := range iss.Labels {
+					l := strings.ToLower(label.GetName())
+					if l == "hacktoberfest-accepted" {
+						isValid = true
+						break
+					}
+				}
+				// check if Repo has desired topic
+				for _, topic := range iss.Repository.Topics {
+					t := strings.ToLower(topic)
+					if t == "hacktoberfest" {
+						isValid = true
+						break
+					}
+				}
+
+				if isValid {
+					validPrCount++
+				}
+			}
+
+			newParticipants[user] = validPrCount
 		}
 
 		if !reflect.DeepEqual(participants, newParticipants) {
