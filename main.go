@@ -62,7 +62,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 		isr, _, _ := client.Search.Issues(ctx, fmt.Sprintf("is:issue state:open repo:%s/%s", owner, repo), &github.SearchOptions{})
 
 		for _, iss := range isr.Issues {
-			p := fmt.Sprintf("%s - %s", *iss.User.Login, iss.GetUser().GetName())
+			p := *iss.User.Login
 			participants[p] = 0
 			client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
 				Body: &msg,
