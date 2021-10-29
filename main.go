@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"reflect"
 	"sort"
 	"time"
@@ -30,7 +29,7 @@ func main() {
 
 	var ghRepo, ghToken string
 
-	signal.Notify(stop, os.Interrupt)
+	//	signal.Notify(stop, os.Interrupt)
 
 	if ghToken = os.Getenv("HFL_GH_TOKEN"); ghToken == "" {
 		fmt.Fprintln(stderr, "You must set environment variable 'HFL_GH_TOKEN'")
