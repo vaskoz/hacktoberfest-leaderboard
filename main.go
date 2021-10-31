@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -46,14 +47,45 @@ func main() {
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
-	owner, repoName, readmeSha, participantsSha := setupNewRepo(ctx, client, ghRepo)
-	updateStats(ctx, client, owner, repoName, readmeSha, participantsSha)
+	user, _, _ := client.Users.Get(ctx, "")
+	repo, _, _ := client.Repositories.Get(ctx, *user.Login, ghRepo)
+	var owner, repoName, readmeSha, participantsSha string
+	var participants []string
+	if repo == nil {
+		owner, repoName, readmeSha, participantsSha, participants = setupNewRepo(ctx, client, ghRepo)
+	} else {
+		owner, repoName, readmeSha, participantsSha, participants = connectRepo(ctx, client, repo, *user.Login)
+	}
+	updateStats(ctx, client, owner, repoName, readmeSha, participantsSha, participants)
 
 	exit(0)
 }
 
-func updateStats(ctx context.Context, client *github.Client, owner, repo, readmeSha, participantsSha string) {
-	participants := map[string]int{owner: -1}
+func connectRepo(ctx context.Context, client *github.Client, repo *github.Repository, owner string) (string, string, string, string, []string) {
+	participants := make([]string, 0, 10)
+	closer, rc, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "participants.txt", &github.RepositoryContentGetOptions{"main"})
+	_, rc2, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "README.md", &github.RepositoryContentGetOptions{"main"})
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(closer)
+	str := buf.String()
+
+	lines := strings.Split(str, "\n")
+	for _, line := range lines {
+		if line != "" {
+			participants = append(participants, strings.TrimSpace(line))
+		}
+	}
+
+	return owner, repo.GetName(), rc2.GetSHA(), rc.GetSHA(), participants
+}
+
+func updateStats(ctx context.Context, client *github.Client, owner, repo, readmeSha, participantsSha string, participants []string) {
+	participantValidPrs := make(map[string]int, len(participants))
+	for _, p := range participants {
+		participantValidPrs[p] = -1
+	}
+
 	q := "is:pr -label:invalid,spam author:%s created:2021-10-01..2021-11-01"
 	msg := "Thank you for signing up for the leaderboard"
 	closed := "closed"
@@ -64,7 +96,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 
 		for _, iss := range isr.Issues {
 			p := *iss.User.Login
-			participants[p] = -1
+			participantValidPrs[p] = -1
 			client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
 				Body: &msg,
 			})
@@ -74,8 +106,8 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 		}
 
 		if isr.GetTotal() != 0 {
-			lst := make([]string, 0, len(participants))
-			for s := range participants {
+			lst := make([]string, 0, len(participantValidPrs))
+			for s := range participantValidPrs {
 				lst = append(lst, s)
 			}
 			sort.StringSlice(lst).Sort()
@@ -94,8 +126,8 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			participantsSha = rcr.GetContent().GetSHA()
 		}
 
-		newParticipants := make(map[string]int, len(participants))
-		for user := range participants {
+		newParticipants := make(map[string]int, len(participantValidPrs))
+		for user := range participantValidPrs {
 			isr, _, _ := client.Search.Issues(ctx, fmt.Sprintf(q, user), &github.SearchOptions{})
 			// verify rules here
 			validPrCount := 0
@@ -135,7 +167,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			newParticipants[user] = validPrCount
 		}
 
-		if !reflect.DeepEqual(participants, newParticipants) {
+		if !reflect.DeepEqual(participantValidPrs, newParticipants) {
 			sorted := Sort(newParticipants)
 			// write a new file
 			now := time.Now()
@@ -154,7 +186,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			readmeSha = rcr.GetContent().GetSHA()
 		}
 
-		participants = newParticipants
+		participantValidPrs = newParticipants
 
 		time.Sleep(2 * time.Minute) // 2-minutes between checks.
 	}
@@ -179,7 +211,7 @@ func Sort(p map[string]int) []Tuple {
 	return res
 }
 
-func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (string, string, string, string) {
+func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (string, string, string, string, []string) {
 	F := false
 	T := true
 	r := &github.Repository{Name: &ghRepo, Private: &F, HasIssues: &T, HasWiki: &F,
@@ -209,5 +241,5 @@ func setupNewRepo(ctx context.Context, client *github.Client, ghRepo string) (st
 
 	rcr2, _, _ := client.Repositories.CreateFile(ctx, *repo.Owner.Login, *repo.Name, "participants.txt", opts1)
 
-	return *repo.Owner.Login, *repo.Name, *rcr.GetContent().SHA, *rcr2.GetContent().SHA
+	return *repo.Owner.Login, *repo.Name, *rcr.GetContent().SHA, *rcr2.GetContent().SHA, []string{*repo.Owner.Login}
 }
