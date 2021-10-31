@@ -63,8 +63,8 @@ func main() {
 
 func connectRepo(ctx context.Context, client *github.Client, repo *github.Repository, owner string) (string, string, string, string, []string) {
 	participants := make([]string, 0, 10)
-	closer, rc, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "participants.txt", &github.RepositoryContentGetOptions{"main"})
-	_, rc2, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "README.md", &github.RepositoryContentGetOptions{"main"})
+	closer, rc, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "participants.txt", &github.RepositoryContentGetOptions{Ref: "main"})
+	_, rc2, _, _ := client.Repositories.DownloadContentsWithMeta(ctx, owner, repo.GetName(), "README.md", &github.RepositoryContentGetOptions{Ref: "main"})
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(closer)
