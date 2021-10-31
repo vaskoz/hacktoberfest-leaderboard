@@ -89,6 +89,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 	q := "is:pr -label:invalid,spam author:%s created:2021-10-01..2021-11-01"
 	msg := "Thank you for signing up for the leaderboard"
 	closed := "closed"
+	commitMsg := "these participants just joined: "
 
 	for { // infinite loop - need context checking here.
 		// find all participants by searching for new issues.
@@ -97,6 +98,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 		for _, iss := range isr.Issues {
 			p := *iss.User.Login
 			participantValidPrs[p] = -1
+			commitMsg += fmt.Sprintf("@%s ", p)
 			client.Issues.CreateComment(ctx, owner, repo, iss.GetNumber(), &github.IssueComment{
 				Body: &msg,
 			})
@@ -112,10 +114,8 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			}
 			sort.StringSlice(lst).Sort()
 			content := ""
-			commitMsg := "these participants just joined: "
 			for _, s := range lst {
 				content += fmt.Sprintf("%s\n", s)
-				commitMsg += fmt.Sprintf("@%s ", s)
 			}
 			opts := &github.RepositoryContentFileOptions{
 				Message: github.String(commitMsg),
