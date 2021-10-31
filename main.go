@@ -112,11 +112,13 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 			}
 			sort.StringSlice(lst).Sort()
 			content := ""
+			commitMsg := "these participants just joined: "
 			for _, s := range lst {
 				content += fmt.Sprintf("%s\n", s)
+				commitMsg += fmt.Sprintf("@%s ", s)
 			}
 			opts := &github.RepositoryContentFileOptions{
-				Message: github.String("participants.txt update"),
+				Message: github.String(commitMsg),
 				Content: []byte(content),
 				Branch:  github.String("main"),
 				SHA:     github.String(participantsSha),
