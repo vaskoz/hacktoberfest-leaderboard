@@ -18,6 +18,10 @@ You need environment variables to operate this program successfully.
 HFL_GH_TOKEN=yourGithubPersonalToken HFL_GH_REPO=nameOfLeaderboardRepoToCreate ./hacktoberfest-leaderboard
 ```
 
+## Restart existing leaderboard
+
+Now you can re-run the same command and it will pick up where it left off on an existing repository.
+
 # Setup multiple leaderboards
 You're able to run as many leaderboards as you want, however, you'll be limited by Github's API rate limits. As of this writing, Github has a limit of 5,000 reqs/hour.
 
