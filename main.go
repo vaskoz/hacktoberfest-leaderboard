@@ -86,7 +86,7 @@ func updateStats(ctx context.Context, client *github.Client, owner, repo, readme
 		participantValidPrs[p] = -1
 	}
 
-	q := "is:pr -label:invalid,spam author:%s created:2021-10-01..2021-11-01"
+	q := "is:pr -label:invalid,spam author:%s created:2021-10-01..2021-10-31"
 	msg := "Thank you for signing up for the leaderboard"
 	closed := "closed"
 	commitMsg := "these participants just joined: "
